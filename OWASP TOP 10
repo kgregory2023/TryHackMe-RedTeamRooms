@@ -1,36 +1,73 @@
 ## 1. Command Injection
-
-
+ls = root drpepper.txt
+0 non root users
+whoami(Linux) shows  www-data 
+cat etc/passwd shows usr/sbin/nologin 
+cat /etc/os-release shows Linux OS version
 
 ## 2. Broken Authentication
-
-
+Using extra characters such as "john" or "bob"
+instead of john or bob in username field
 
 ## 3. Sensitive Data Exposure
-
+- Used web inspect recon to identify leaked comment for database named assets
+- Used search query to access database directories found db name
+- Used sqlite to access database
+- Found the hash file
+- Used online hashtool to crack the hash
+- Logged in as admin
 
 ## 4. XML External Entity
+<!DOCTYPE note SYSTEM "note.dtd">
+<note>
+    <to>falcon</to>
+    <from>feast</from>
+    <heading>hacking</heading>
+    <body>XXE attack</body>
+</note>
 
+!DOCTYPE note -  Defines a root element of the document named note
+!ELEMENT note - Defines that the note element must contain the elements: "to, from, heading, body"
+!ELEMENT to - Defines the to element to be of type "#PCDATA"
+!ELEMENT from - Defines the from element to be of type "#PCDATA"
+!ELEMENT heading  - Defines the heading element to be of type "#PCDATA"
+!ELEMENT body - Defines the body element to be of type "#PCDATA"
 
+example lastname change payload
+<!DOCTYPE replace [<!ENTITY name "feast"> ]>
+ <userInfo>
+  <firstName>falcon</firstName>
+  <lastName>&name;</lastName>
+ </userInfo>
 
 ## 5. Broken Access Control
-
+link is http://chicken/user=1
+broken is ability to view http://chicken/user=2
 
 ## 6. Security Misconfiguration
-
-
-
+Webapp pensive notes.
+- Recon google search led to pubic default credentials leaked on github page for the app
+- Reset default credentials on app
+- logged in successfully and found the flag
 
 ## 7. XSS Scripting
-
+Popup's (<script>alert(“Hello World”)</script>) - Creates a Hello World message popup on a users browser.
+Writing HTML (document.write) - Override the website's HTML to add your own (essentially defacing the entire page).
+XSS Keylogger (http://www.xss-payloads.com/payloads/scripts/simplekeylogger.js.html) - You can log all keystrokes of a user, capturing their password and other sensitive information they type into the webpage.
+Port scanning (http://www.xss-payloads.com/payloads/scripts/portscanapi.js.html) - A mini local port scanner (more information on this is covered in the TryHackMe XSS room).
 
 
 ## 8. Insecure Deserialization
-
+- Signing up for webapp
+- Going to inspect to the storage tab for cookies
+- Modify values, then relogin for example http://myapp/admin
+- Can also be executed via rce
 
 
 ## 9. Components Known Vulnerabilities
-
+- Exploit-DB CSE bookstore
 
 
 ## 10. Insufficent Loggin and Monitoring
+- viewed logfile to determine brute force login attempt
+
