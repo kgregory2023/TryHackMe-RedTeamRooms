@@ -1,0 +1,101 @@
+# TryHackMe Room Report
+
+## Room Name
+*Network Services*
+
+## Date
+*10-19-2025*
+
+## Room Objective
+Enumerating and exploiting common network services.
+
+## Tools Used
+1. Nmap.
+2. enum4linux
+3. TCPDUMP listener
+4. msfvenom
+5. netcat
+6. Hydra
+
+## Methodology
+
+## SMB
+1. SMB Enumeration.
+- Performed port/service reconnasiance found three running services on target.
+
+- Performed enum4linux enumeration to find Workgroup name, machine name and OS version and share folder.
+
+2. SMB Exploitation
+- Found file under profiles directory after gaining passwordless access using false username.
+- Identified Profile Owner's name, Title of Department manager and method of connecting to company server from home.
+- Found authentication keys inside .ssh directory and rsa, remote server access key
+- downloaded and used chmod 600 to open the rsa key.
+- downloaded and found login for profile user in rsa public key.
+- Logged in as profile user using ssh and id_rsa authentication key pathway to gain access to account.
+- Found flagg in the text file.
+
+## Telnet
+1. Telnet Enumeration
+- Performed port/service reconnasiance found running services on target using nmap -A -Pn -T4 -p-
+- Found evidence of a backdoor after port/service scanning
+
+2. Telnet Exploitation
+- Logged into backdoor using telnet port 
+- Created tcpdump listener to log telnet backdoor inputs.
+- Created reverse shell using msfvenom with payload
+- Established netcat listener on host machine
+- Copied Payload into telnet target backdoor, recieved connection response
+- ran whoami, found flag
+
+## FTP
+1. FTP Enumeration
+- Performed port/service reconnasiance found running services on target using nmap -A -Pn -T4 -p-
+- Logged into FTP via target IP using anonymous credentials
+- Downloaded file and gathered information for exploitation phase
+
+2. FTP Exploitation
+- Used Hydra for password Brute force exploitation for the profile user.
+- Logged into the FTP server as Mike
+
+
+
+## Key Findings
+
+  ## SMB
+- Summarize vulnerabilities, credentials, flags found.
+- Three open ports, ssh, SAMBA 139 SMB and SAMBA 445 smb.
+PORT    STATE SERVICE     VERSION
+22/tcp  open  ssh         OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+139/tcp open  netbios-ssn Samba smbd 4.6.2
+445/tcp open  netbios-ssn Samba smbd 4.6.2
+MAC Address: 02:E6:C4:27:0E:17 (Unknown)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+- Located interesting share to exploit, "Profiles"
+- Located file in SMB Share titled "Work From Home.txt"
+- Found Department Manager's name, method of connecting from home via SSH and it department email address.
+- found John Cactus login using rsa public key, cactus@polosmb.
+- logged in as John Cactus via SSH and opened the smb.txt file to get the flag.
+
+  ## Telnet
+- Port running unknown service on 8012/tcp
+- included reference to Skiddy's Backdoor belonging to someone named Skidy.
+- Succesfully logged into the Skiddy's backdoor via telnet 8012
+- msfvenom payload is mkfifo
+- established netcat port 4444 on Host
+- receieved connection response to 35824, ran whoami then ls and found the flag.
+
+  ## FTP
+- Found 3 open ports 21,22,80
+- Running services FTP, ssh, HTTP
+- Specifically running vsFTPd 3.0.5
+- Found file 2020 public notice.txt
+- Found name of owner(Mike) and details of FTP server being down over the weekend and backups put on his account
+- Successfully gained the password of "Mike" as "Password"
+- Found the flag.txt file and gained the flag text!
+
+## Challenges Faced
+- No challenges faced in this room
+
+## Final Outcome
+TBD
