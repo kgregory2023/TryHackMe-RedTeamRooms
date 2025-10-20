@@ -1,20 +1,41 @@
 # TryHackMe Room Report
 
-
 ## Room Name
+Vulnersity
 
 ## Date
-
+10/20/2025
 
 ## Room Objective
+Compromise a target webserver
 
 ## Tools Used
+1. Nmap
+2. Gobuster
+3. Burpsuite
 
 
 ## Methodology
-
-
+1. Reconaissance of target
+- Scanned for ports and services: nmap -A -sC
+- Configured Gobuster to find directory in Vuln University
+- used gobuster directory word list to identify target directory in web app
+2. Exploitation
+- Used Burpsuite to test .php files against web app using paylaods in snipermode
+- Gained a reverse shell to convert php payload to .phtml
+3. Execution
+- Uploaded malicous .phtml payload to target website address forms
+4. Privilege Escaltion
+- 
 ## Key Findings
-
+- Open Ports: 21,22,139,445,3128,3333
+- Open Services: ftp,squid-http,ssh,netbios-ssn,microsoft-ds,dec-notes
+- HTTP header name is Vuln University
+- OS is Linux (Ubuntu)
+- Internal directory has uplaod forms page
+- Found the owner of the webpaged named Bill
+- Found /bin/systemctl directory from SUID file search
+- Found Flag
 
 ## Final Outcome
+TBD
